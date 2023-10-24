@@ -186,7 +186,7 @@ void Gene_Level_Crossover_FFD(long int, long int, long int);
 void Adaptive_Mutation_RP(long int, float, int);
 void FF_n_(int); // First Fit with � pre-allocated-items (FF-�)
 void calculateFitness(int individual, int total_bins);
-int *shuffleItens();
+int *shuffleItens(int individual);
 int validation(int individual, int bin, int bin_100);
 void NextFit(int);                                   // Next Fit
 void Next2Fit(int);                                  // Next 2 Fit
@@ -214,6 +214,8 @@ long int LoadData();
 void WriteOutput();
 void sendtofile(SOLUTION[]);
 void printAllPopulation(SOLUTION *, FILE *);
+void printIndividualInPopulation(int individual);
+void printIndividualInChildren(int individual);
 
 // Pseudo-random number generator functions
 int get_rand_ij(int *, int, int);
@@ -385,6 +387,34 @@ void printAllPopulation(SOLUTION *Pop, FILE *out, int n_bins)
                 fprintf(out, "[Item: %ld, Weight: %ld]\t", item + 1, weight[item]);
             }
         }
+    }
+}
+
+void printIndividualInPopulation(int individual){
+    printf("INDIVIDUAL\n");
+    for(int i = 0; i < population[individual][number_items + 1].Bin_Fullness; i++)
+    {
+        printf("CAIXA %d: ", i+1);
+        node* node = population[individual][i].L.first;
+        while(node != NULL){
+            printf("%ld ", node->data);
+            node = node->next;
+        }
+        printf("= %lf\n", population[individual][i].Bin_Fullness);
+    }
+}
+
+void printIndividualInChildren(int individual){
+    printf("INDIVIDUAL\n");
+    for(int i = 0; i < children[individual][number_items + 1].Bin_Fullness; i++)
+    {
+        printf("CAIXA %d: ", i+1);
+        node* node = children[individual][i].L.first;
+        while(node != NULL){
+            printf("%ld ", node->data);
+            node = node->next;
+        }
+        printf("= %lf\n", children[individual][i].Bin_Fullness);
     }
 }
 
@@ -763,9 +793,12 @@ void calculateFitness(int individual, int total_bins)
         population[individual][number_items].Bin_Fullness += pow((population[individual][a].Bin_Fullness / bin_capacity), 2);
 }
 
-int *shuffleItens()
+int *shuffleItens(int individual)
 {
-    srand(time(0));
+    srand(time(NULL));
+    for(int c = 0; c < individual*number_items;c++)
+        rand();
+
     int *shuffe = (int *)malloc(sizeof(int) * number_items);
 
     for (int a = 0; a < number_items; a++)
@@ -779,14 +812,13 @@ int *shuffleItens()
         shuffe[item_a] = shuffe[item_b];
         shuffe[item_b] = aux;
     }
-
     return shuffe;
 }
 
 void NextFit(int individual)
 {
     int total_bins = 0, bin_100 = 0;
-    int *shuffle = shuffleItens();
+    int *shuffle = shuffleItens(individual);
     for (int a = 0; a < number_items; a++)
     {
         if (population[individual][total_bins].Bin_Fullness + weight[shuffle[a]] > bin_capacity)
@@ -809,7 +841,7 @@ void NextFit(int individual)
 void Next2Fit(int individual)
 {
     int total_bins = 0, bin_100 = 0;
-    int *shuffle = shuffleItens();
+    int *shuffle = shuffleItens(individual);
     for (int a = 0; a < number_items; a++)
     {
         int b = total_bins;
@@ -839,7 +871,7 @@ void Next2Fit(int individual)
 void FirstFit(int individual)
 {
     int total_bins = 0, bin_100 = 0, b;
-    int *shuffle = shuffleItens();
+    int *shuffle = shuffleItens(individual);
     for (int a = 0; a < number_items; a++)
     {
         for (b = 0; b < total_bins; b++)
@@ -865,7 +897,7 @@ void WorstFit(int individual)
 {
     int total_bins = 1, bin_100 = 0;
     int bins[number_items];
-    int *shuffle = shuffleItens();
+    int *shuffle = shuffleItens(individual);
     bins[0] = 0;
 
     for (int a = 0; a < number_items; a++)
@@ -918,7 +950,7 @@ void BestFit(int individual)
 {
     int total_bins = 1, bin_100 = 0;
     int bins[number_items];
-    int *shuffle = shuffleItens();
+    int *shuffle = shuffleItens(individual);
     bins[0] = 0;
 
     for (int a = 0; a < number_items; a++)
@@ -956,11 +988,9 @@ void BestFit(int individual)
     population[individual][number_items + 3].Bin_Fullness = bin_100;
 }
 
-void getIndividual(int individual)
+void getIndividual(int individual, int rand)
 {
-    srand(time(0));
-
-    switch (rand() % 5)
+    switch (rand % 5)
     {
     case 0:
         NextFit(individual);
@@ -978,6 +1008,8 @@ void getIndividual(int individual)
         BestFit(individual);
         break;
     }
+
+    printIndividualInPopulation(individual);
 }
 
 /************************************************************************************************************************
@@ -997,9 +1029,13 @@ void getIndividual(int individual)
 ************************************************************************************************************************/
 long int Generate_Initial_Population()
 {
+    srand(time(NULL));
+    int randNum = rand();
     for (i = 0; i < P_size; i++)
     {
-        getIndividual(i);
+        for(j = 0; j < i; j++)
+            randNum = rand();
+        getIndividual(i, randNum);
         population[i][number_items + 4].Bin_Fullness = bin_capacity;
         population[i][number_items + 2].Bin_Fullness = generation;
         population[i][number_items].Bin_Fullness /= population[i][number_items + 1].Bin_Fullness;
@@ -1029,6 +1065,7 @@ long int Generate_Initial_Population()
 ************************************************************************************************************************/
 long int Generation()
 {
+    printf("Generation\n");
     long int f1;
     long int f2;
     long int h;
@@ -1183,6 +1220,12 @@ void Gene_Level_Crossover_FFD(long int father_1, long int father_2, long int chi
     else
         counter = (long int)population[father_2][number_items + 1].Bin_Fullness;
 
+    //printf("FATHER 1\n");
+    //printIndividualInPopulation(father_1);
+    //printf("FATHER 2\n");
+    //printIndividualInPopulation(father_2);
+
+
     long int *random_order1 = new long int[counter];
     long int *random_order2 = new long int[counter];
 
@@ -1263,6 +1306,11 @@ void Gene_Level_Crossover_FFD(long int father_1, long int father_2, long int chi
         for (k = 0; k < k2; k++)
             children[child][number_items].Bin_Fullness += pow((children[child][k].Bin_Fullness / bin_capacity), 2);
     children[child][number_items + 1].Bin_Fullness = k2;
+
+    //printf("CHILDREN\n");
+    //printIndividualInChildren(child);
+
+
     free(random_order1);
     free(random_order2);
 }
